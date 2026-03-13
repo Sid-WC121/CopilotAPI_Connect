@@ -29,7 +29,7 @@ Tool/function-calling is fully preserved, enabling Agent Mode.
 
 ```bash
 git clone https://github.com/Sid-WC121/CopilotAPI_Connect.git
-cd copilot-ollama
+cd CopilotAPI_Connect
 ```
 
 2. Create your `.env` file and add keys for the providers you use.
@@ -48,10 +48,18 @@ NVIDIA_API_KEY="your_nvidia_api_key_here"
 uv run python run.py
 ```
 
+The launcher auto-selects free ports when defaults are busy:
+
+- LiteLLM default: `4000`
+- oai2ollama default: `11434`
+
+If either port is occupied, the next free port is chosen and printed in the console.
+Use the printed oai2ollama URL as your VSCode endpoint.
+
 Alternative launchers: `run.cmd` (cmd), `./run.ps1` (PowerShell), `./run.sh` (bash).
 
 4. Configure VSCode:
-   - Set `github.copilot.chat.byok.ollamaEndpoint` to `http://localhost:11434`
+  - Set `github.copilot.chat.byok.ollamaEndpoint` to the URL printed by `run.py`
    - Open Manage Models → select Ollama
 
 ## Providers

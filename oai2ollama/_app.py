@@ -56,6 +56,19 @@ def _upstream_error_response(status_code: int, content: bytes):
         return PlainTextResponse(content.decode("utf-8", errors="replace"), status_code=status_code)
 
 
+def _upstream_unavailable_response(base_url: str, detail: str):
+    return JSONResponse(
+        status_code=503,
+        content={
+            "error": {
+                "message": f"Upstream API unavailable at {base_url}: {detail}",
+                "type": "upstream_unavailable",
+                "code": "503",
+            }
+        },
+    )
+
+
 @app.get("/")
 async def root():
     return PlainTextResponse("Ollama is running")
@@ -69,9 +82,14 @@ async def ps():
 
 @app.get("/api/tags")
 async def models():
+    from httpx import RequestError
+
     async with _new_client() as client:
-        res = await client.get("/models")
-        res.raise_for_status()
+        try:
+            res = await client.get("/models")
+            res.raise_for_status()
+        except RequestError as exc:
+            return _upstream_unavailable_response(str(env.base_url), str(exc))
     entries = []
     for item in res.json()["data"]:
         name = _ollama_name(item["id"])
@@ -88,9 +106,14 @@ async def models():
 
 @app.get("/v1/models")
 async def v1_models():
+    from httpx import RequestError
+
     async with _new_client() as client:
-        res = await client.get("/models")
-        res.raise_for_status()
+        try:
+            res = await client.get("/models")
+            res.raise_for_status()
+        except RequestError as exc:
+            return _upstream_unavailable_response(str(env.base_url), str(exc))
     items = []
     for item in res.json()["data"]:
         items.append({"id": item["id"], "object": "model", "owned_by": "ollama"})
@@ -127,11 +150,16 @@ async def chat_completions(request: Request):
         data = {**data, "model": _litellm_name(data["model"])}
 
     if data.get("stream", False):
+        from httpx import RequestError
+
         async with _new_client() as client:
             # Use a non-stream upstream call and adapt it to SSE to avoid lifecycle
             # issues from holding upstream network streams open across response boundaries.
             upstream_payload = {**data, "stream": False}
-            res = await client.post("/chat/completions", json=upstream_payload)
+            try:
+                res = await client.post("/chat/completions", json=upstream_payload)
+            except RequestError as exc:
+                return _upstream_unavailable_response(str(env.base_url), str(exc))
             if res.is_error:
                 return _upstream_error_response(res.status_code, res.content)
 
@@ -201,8 +229,13 @@ async def chat_completions(request: Request):
             return StreamingResponse(stream(), media_type="text/event-stream")
 
     else:
+        from httpx import RequestError
+
         async with _new_client() as client:
-            res = await client.post("/chat/completions", json=data)
+            try:
+                res = await client.post("/chat/completions", json=data)
+            except RequestError as exc:
+                return _upstream_unavailable_response(str(env.base_url), str(exc))
             if res.is_error:
                 return _upstream_error_response(res.status_code, res.content)
             return res.json()

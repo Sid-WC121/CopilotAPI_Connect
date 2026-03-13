@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import socket
 import shutil
 import signal
 import subprocess
@@ -48,6 +49,25 @@ def terminate_processes(processes: list[subprocess.Popen[bytes]]) -> None:
             process.kill()
 
 
+def _is_port_free(host: str, port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            sock.bind((host, port))
+            return True
+        except OSError:
+            return False
+
+
+def _pick_port(host: str, preferred: int, limit: int = 50) -> int:
+    if _is_port_free(host, preferred):
+        return preferred
+    for port in range(preferred + 1, preferred + 1 + limit):
+        if _is_port_free(host, port):
+            return port
+    raise RuntimeError(f"No free port found near {preferred}")
+
+
 def main() -> int:
     project_root = Path(__file__).resolve().parent
     os.chdir(project_root)
@@ -79,6 +99,17 @@ def main() -> int:
         print("uv is not installed or not on PATH.")
         return 1
 
+    bind_host = os.getenv("BIND_HOST", "localhost")
+    preferred_litellm_port = int(os.getenv("LITELLM_PORT", "4000"))
+    preferred_oai2ollama_port = int(os.getenv("OAI2OLLAMA_PORT", "11434"))
+
+    litellm_port = _pick_port(bind_host, preferred_litellm_port)
+    oai2ollama_port = _pick_port(bind_host, preferred_oai2ollama_port)
+
+    # Ensure both services never attempt to use the same selected port.
+    if oai2ollama_port == litellm_port:
+        oai2ollama_port = _pick_port(bind_host, oai2ollama_port + 1)
+
     processes: list[subprocess.Popen[bytes]] = []
 
     def _handle_signal(_signum: int, _frame: object) -> None:
@@ -89,13 +120,21 @@ def main() -> int:
     signal.signal(signal.SIGINT, _handle_signal)
     signal.signal(signal.SIGTERM, _handle_signal)
 
-    litellm = subprocess.Popen([uv_path, "run", "litellm", "--config", "config.yaml"])
+    litellm = subprocess.Popen([uv_path, "run", "litellm", "--config", "config.yaml", "--port", str(litellm_port)])
     processes.append(litellm)
-    print(f"Started litellm with PID {litellm.pid}")
+    print(f"Started litellm with PID {litellm.pid} on http://{bind_host}:{litellm_port}")
 
-    oai2ollama = subprocess.Popen([uv_path, "run", "oai2ollama", "--api-key", "any", "--base-url", "http://localhost:4000"])
+    env = os.environ.copy()
+    env["OAI2OLLAMA_HOST"] = bind_host
+    env["OAI2OLLAMA_PORT"] = str(oai2ollama_port)
+
+    oai2ollama = subprocess.Popen(
+        [uv_path, "run", "oai2ollama", "--api-key", "any", "--base-url", f"http://{bind_host}:{litellm_port}"],
+        env=env,
+    )
     processes.append(oai2ollama)
-    print(f"Started oai2ollama with PID {oai2ollama.pid}")
+    print(f"Started oai2ollama with PID {oai2ollama.pid} on http://{bind_host}:{oai2ollama_port}")
+    print(f"Set VSCode github.copilot.chat.byok.ollamaEndpoint to http://{bind_host}:{oai2ollama_port}")
 
     try:
         while True:
