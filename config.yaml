@@ -1,0 +1,60 @@
+# config.yaml
+#
+# Each model entry is independent: set model, api_base, and api_key per entry.
+# This lets you mix providers freely — NVIDIA, OpenRouter, OpenAI, etc.
+# The model_name is the alias Copilot will see.
+# Only add keys to .env for the providers you actually use.
+
+model_list:
+  # NVIDIA NIM
+  # Get a free key at https://build.nvidia.com
+  # Browse available model IDs at https://integrate.api.nvidia.com/v1/models
+
+  - model_name: GLM-5:nvidia
+    supports_function_calling: true
+    supports_tool_choice: true
+    supports_parallel_function_calling: true
+    litellm_params:
+      model: openai/zai-org/GLM-5
+      api_base: https://integrate.api.nvidia.com/v1
+      api_key: os.environ/NVIDIA_API_KEY
+
+  - model_name: kimi-k2.5:nvidia
+    supports_function_calling: true
+    supports_tool_choice: true
+    supports_parallel_function_calling: true
+    litellm_params:
+      model: openai/moonshotai/kimi-k2.5
+      api_base: https://integrate.api.nvidia.com/v1
+      api_key: os.environ/NVIDIA_API_KEY
+
+  - model_name: deepseek-v3.2:nvidia
+    supports_function_calling: true
+    supports_tool_choice: true
+    supports_parallel_function_calling: true
+    litellm_params:
+      model: openai/deepseek-ai/deepseek-v3.2
+      api_base: https://integrate.api.nvidia.com/v1
+      api_key: os.environ/NVIDIA_API_KEY
+
+  - model_name: qwen3.5-397b-a17b:nvidia
+    supports_function_calling: true
+    supports_tool_choice: true
+    supports_parallel_function_calling: true
+    litellm_params:
+      model: openai/qwen/qwen3.5-397b-a17b
+      api_base: https://integrate.api.nvidia.com/v1
+      api_key: os.environ/NVIDIA_API_KEY
+
+  # Cerebras — https://cloud.cerebras.ai (no api_base needed, LiteLLM has built-in support)
+  - model_name: gpt-oss-120b:cerebras
+    supports_function_calling: true
+    supports_tool_choice: true
+    supports_parallel_function_calling: true
+    litellm_params:
+      model: cerebras/gpt-oss-120b
+      api_key: os.environ/CEREBRAS_API_KEY
+
+
+litellm_settings:
+  api_key: os.environ/LITELLM_API_KEY
