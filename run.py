@@ -68,7 +68,7 @@ def main() -> int:
             print("OPENROUTER_API_KEY is set, but default config.yaml uses NVIDIA endpoint.")
             print("Set NVIDIA_API_KEY, or change config.yaml model/api_base to an OpenRouter model.")
         elif not litellm_key:
-            print("No API key found. Create .env from .env.example and set NVIDIA_API_KEY.")
+            print("No API key found. Create .env and set NVIDIA_API_KEY.")
         else:
             print("LITELLM_API_KEY is set, but NVIDIA_API_KEY is missing for default NVIDIA config.")
             print("Set NVIDIA_API_KEY, or update config.yaml to use a provider matching your key.")
